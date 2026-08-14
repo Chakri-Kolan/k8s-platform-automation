@@ -1,0 +1,91 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/chakri-kolan/platform-app
+  pullPolicy: IfNotPresent
+  tag: "1.0.0"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: [ALL]
+  privileged: false
+  readOnlyRootFilesystem: true
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: platform-app.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  requests: {cpu: 100m, memory: 64Mi}
+  limits: {cpu: 500m, memory: 128Mi}
+
+probes:
+  readiness:
+    path: /ready
+    initialDelaySeconds: 2
+    periodSeconds: 5
+  liveness:
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+  ingressNamespaceSelector: {}
+
+serviceMonitor:
+  enabled: false
+  interval: 30s
+
+env:
+  APP_ENV: production
+  APP_VERSION: "1.0.0"
+  PORT: "8080"
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []
