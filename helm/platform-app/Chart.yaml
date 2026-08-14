@@ -1,0 +1,7 @@
+apiVersion: v2
+name: platform-app
+description: Secure, observable Kubernetes workload reference chart
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+kubeVersion: ">=1.26.0-0"

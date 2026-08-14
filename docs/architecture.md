@@ -1,48 +1,40 @@
-# Architecture
+# Platform architecture
 
-## Overview
-This project represents a production-style Kubernetes platform automation setup used to standardize application deployment, scaling, and operational visibility.
+```mermaid
+flowchart LR
+    Commit --> CI[GitHub Actions validation]
+    Tag --> Build[Multi-architecture image build]
+    Build --> GHCR[GitHub Container Registry]
+    TF[Terraform] --> Helm[Helm release]
+    Helm --> K8s[Kubernetes cluster]
+    GHCR --> K8s
+    K8s --> App[Platform app pods]
+    App --> Metrics[Prometheus ServiceMonitor]
+    HPA[Horizontal Pod Autoscaler] --> App
+```
 
-It is designed to reflect how platform teams manage repeatable deployments for containerized services running in Kubernetes environments such as Amazon EKS.
+## Responsibility boundaries
 
-## Components
+This repository deploys a workload **into an existing Kubernetes cluster**. It intentionally does not create an EKS cluster: cluster lifecycle, networking, and organization-wide add-ons normally belong to a separately owned infrastructure stack and state file.
 
-### 1. Application Workload
-The application is packaged as a container image and deployed as a Kubernetes Deployment. The deployment manages replica count, rollout behavior, and pod lifecycle.
+Terraform owns the namespace and Helm release. Helm owns namespaced workload resources. The container image is built from the sample service and published to GHCR only for version tags.
 
-### 2. Service Exposure
-A Kubernetes Service exposes the application internally within the cluster and provides stable service discovery for traffic routing.
+## Availability
 
-### 3. Health Monitoring
-Readiness and liveness probes are configured to ensure that only healthy pods receive traffic and that unhealthy containers are restarted automatically.
+- Rolling updates allow zero unavailable replicas.
+- Readiness and liveness probes separate traffic eligibility from restart health.
+- The HPA responds to CPU utilization while the disruption budget protects voluntary maintenance.
+- Production values spread replicas across availability zones when the cluster exposes zone labels.
+- Helm releases are atomic and retain five revisions for rollback.
 
-### 4. Autoscaling
-A Horizontal Pod Autoscaler scales the application based on CPU utilization to support demand changes while maintaining efficient resource usage.
+## Security
 
-### 5. Helm-Based Configuration
-Helm values are used to standardize deployment settings across environments, including image version, resource requests, ingress configuration, and autoscaling thresholds.
+- Pods run as UID/GID 65532 with a read-only root filesystem and all Linux capabilities dropped.
+- Service account tokens are not mounted because the workload does not call the Kubernetes API.
+- The namespace enforces the restricted Pod Security Standard.
+- NetworkPolicy limits inbound application traffic and outbound DNS.
+- CI validates rendered manifests and builds the image before changes merge.
 
-### 6. CI/CD Workflow
-GitHub Actions validates Kubernetes manifests and supports deployment automation. In a production setup, this workflow would integrate with secure cluster credentials and controlled release processes.
+## Observability
 
-## Deployment Flow
-
-Developer Commit  
-↓  
-GitHub Actions Validation  
-↓  
-Helm or Kubernetes Manifest Deployment  
-↓  
-Kubernetes Cluster  
-↓  
-Service Exposure and Autoscaling
-
-## Design Goals
-- repeatable deployments
-- environment consistency
-- operational reliability
-- simplified release management
-- production-style health and scaling controls
-
-## Operational Focus
-This repository is structured to demonstrate common platform engineering concerns such as deployment standardization, health checks, scalability, and automated delivery patterns.
+The service exposes Prometheus metrics at `/metrics`. `ServiceMonitor` is optional because it requires the Prometheus Operator CRDs. Health and readiness endpoints are available at `/health` and `/ready`.
